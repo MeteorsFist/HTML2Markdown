@@ -59,6 +59,7 @@ class Parser(object):
         self.soup = BeautifulSoup(self.html, 'html.parser')
         self.outputs = []
         self.equ_inline = False
+        self.handler = HandlerFactory.getHandler(url)
 
         os_name = platform.system()
         if os_name == "Windows":
@@ -109,7 +110,6 @@ class Parser(object):
 
     # 处理HTML元素的解析
     def on_handle_elements(self, soup):
-        handler = Handler()
         tag = soup.name
         # 如果是忽略的标签直接跳过
         if tag in self.ignore_tags:
@@ -129,18 +129,10 @@ class Parser(object):
             soup.contents.insert(0, NavigableString('*'))
             soup.contents.append(NavigableString('*'))
         elif tag == 'pre':
-            # 语言
-            language = self.extract_language(soup)
-            if language is None:
-                soup.contents.insert(0, NavigableString('\n```\n'))
-            else:
-                soup.contents.insert(0, NavigableString('\n```' + language + '\n'))
-            soup.contents.append(NavigableString('\n```\n'))
+            self.handler.handle_pre(soup)
+
         elif tag in ['code', 'tt']:
-            # 判断code标签是否放在pre标签里面
-            if soup.parent.name != "pre":
-                soup.contents.insert(0, NavigableString('`'))
-                soup.contents.append(NavigableString('`'))
+            self.handler.handle_code(soup)
         elif tag == 'p':
             if soup.parent.name != 'li':
                 soup.contents.insert(0, NavigableString('\n'))
@@ -148,9 +140,9 @@ class Parser(object):
 
             pass
         elif tag in ['ol', 'ul']:
-            handler.handle_ol(soup)
+            self.handler.handle_ol(soup)
         elif tag in ['li']:
-            handler.handle_li(soup)
+            self.handler.handle_li(soup)
         elif tag == 'tbody':
             self.remove_empty_lines(soup)
             self.remove_empty_lines(soup.contents[0])
@@ -220,25 +212,33 @@ class Parser(object):
                                   self.title + "/" + file_name)
         return code
 
-    def extract_language(self, soup):
-        """ 输入pre code span，分析其中有没有class标记了语言块 """
-        clazz = soup.get("class")
-        if clazz is not None:
-            if 'language-sql' in clazz:
-                return 'sql'
-            elif 'language-java' in clazz:
-                return 'java'
-            elif 'language-cpp' in clazz:
-                return 'cpp'
-        child = soup.find('code')
-        if child is None:
-            return None
-        return self.extract_language(child)
 
 
 
+class HandlerFactory(object):
+    @staticmethod
+    def getHandler(url):
+        if 'csdn.net' in url:
+            return CSDNHandler()
+        else:
+            return Handler()
 
 class Handler(object):
+    def handle_pre(self,soup):
+        # 语言
+        language = self.extract_language(soup)
+        if language is None:
+            soup.contents.insert(0, NavigableString('\n```\n'))
+        else:
+            soup.contents.insert(0, NavigableString('\n```' + language + '\n'))
+        soup.contents.append(NavigableString('\n```\n'))
+
+    def handle_code(self,soup):
+        # 判断code标签是否放在pre标签里面
+        if soup.parent.name != "pre":
+            soup.contents.insert(0, NavigableString('`'))
+            soup.contents.append(NavigableString('`'))
+
     def handle_ol(self, soup):
         soup.contents.insert(0, NavigableString('\n'))
         soup.contents.append(NavigableString('\n'))
@@ -255,6 +255,31 @@ class Handler(object):
         indent = '\t' * depth
         soup.contents.insert(0, NavigableString('\n' + indent + '+ '))
 
+    def extract_language(self, soup):
+        """ 输入pre code span，分析其中有没有class标记了语言块 """
+        clazz = soup.get("class")
+        if clazz is not None:
+            if 'language-sql' in clazz:
+                return 'sql'
+            elif 'language-java' in clazz:
+                return 'java'
+            elif 'language-cpp' in clazz:
+                return 'cpp'
+        child = soup.find('code')
+        if child is None:
+            return None
+        return self.extract_language(child)
+
+
+class CSDNHandler(Handler):
+    def handle_pre(self, soup):
+        # 语言
+        language = self.extract_language(soup)
+        if language is None:
+            soup.contents.insert(0, NavigableString('\n```\n'))
+        else:
+            soup.contents.insert(0, NavigableString('\n```' + language + '\n'))
+        soup.contents.append(NavigableString('```\n')) # 少一个换行
 
 if __name__ == '__main__':
     # html = '<body><!-- cde --><h1>This is 1 &lt;= 2<!-- abc --> <b>title</b></h1><p><a href="www.hello.com">hello</a></p><b>test</b>'
