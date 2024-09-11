@@ -20,7 +20,6 @@ import httpx
 import requests
 from bs4 import BeautifulSoup, Tag, NavigableString, Comment
 
-
 from Utils import download_img, yaml_config_load
 
 current_work_dir = os.path.dirname(__file__)  # 当前文件所在的目录
@@ -61,15 +60,15 @@ class Parser(object):
         self.outputs = []
         self.equ_inline = False
 
-        title_dir = title
-        os_type = platform.system()
-        if os_type == "Windows":
+        os_name = platform.system()
+        if os_name == "Windows":
             # 文件名不能包含以下字符：< > : " / \ | ? *。
             invalid_chars = '<>:"/\\|?*'
             for char in invalid_chars:
-                title_dir = title_dir.replace(char, "-")
-        print(title_dir)
-        self.page_img_dir = self.img_dir + "/" + title_dir
+                title = title.replace(char, "-")
+        title = title.replace('\n', '')
+        title = title.replace('\t\n', '')
+        self.page_img_dir = self.img_dir + "/" + title
         if not exists(self.page_img_dir):
             os.makedirs(self.page_img_dir)
         pass
@@ -100,7 +99,7 @@ class Parser(object):
             # 如果是忽略的标签直接跳过
             if soup.name in self.ignore_tags:
                 return
-            self.on_headle_elements(soup)
+            self.on_handle_elements(soup)
         # 判断是否还有子节点，如果没有直接退出
         if not hasattr(soup, 'children'):
             return
@@ -109,7 +108,8 @@ class Parser(object):
             self.recursive(child)
 
     # 处理HTML元素的解析
-    def on_headle_elements(self, soup):
+    def on_handle_elements(self, soup):
+        handler = Handler()
         tag = soup.name
         # 如果是忽略的标签直接跳过
         if tag in self.ignore_tags:
@@ -148,10 +148,9 @@ class Parser(object):
 
             pass
         elif tag in ['ol', 'ul']:
-            soup.contents.insert(0, NavigableString('\n'))
-            soup.contents.append(NavigableString('\n'))
+            handler.handle_ol(soup)
         elif tag in ['li']:
-            soup.contents.insert(0, NavigableString('\n+ '))
+            handler.handle_li(soup)
         elif tag == 'tbody':
             self.remove_empty_lines(soup)
             self.remove_empty_lines(soup.contents[0])
@@ -208,7 +207,7 @@ class Parser(object):
 
         # 下载图片
         o = urlparse(self.url)
-        host = o.scheme+"://"+o.hostname
+        host = o.scheme + "://" + o.hostname
         img_url = urljoin(host, img_url)
 
         # 不下载图片，引用原图片
@@ -224,14 +223,38 @@ class Parser(object):
     def extract_language(self, soup):
         """ 输入pre code span，分析其中有没有class标记了语言块 """
         clazz = soup.get("class")
-        if 'language-sql' in clazz:
-            return 'sql'
-        elif 'language-java' in clazz:
-            return 'java'
+        if clazz is not None:
+            if 'language-sql' in clazz:
+                return 'sql'
+            elif 'language-java' in clazz:
+                return 'java'
+            elif 'language-cpp' in clazz:
+                return 'cpp'
         child = soup.find('code')
         if child is None:
             return None
         return self.extract_language(child)
+
+
+
+
+class Handler(object):
+    def handle_ol(self, soup):
+        soup.contents.insert(0, NavigableString('\n'))
+        soup.contents.append(NavigableString('\n'))
+
+    def handle_li(self, soup):
+        parent = soup.parent
+        depth = -1
+        print(parent.name)
+        # 嵌套的列表项正确的缩进
+        while parent.name in ['ol', 'ul', 'li']:
+            if parent.name in ['ol', 'ul']:
+                depth = depth + 1
+            parent = parent.parent
+        indent = '\t' * depth
+        soup.contents.insert(0, NavigableString('\n' + indent + '+ '))
+
 
 if __name__ == '__main__':
     # html = '<body><!-- cde --><h1>This is 1 &lt;= 2<!-- abc --> <b>title</b></h1><p><a href="www.hello.com">hello</a></p><b>test</b>'

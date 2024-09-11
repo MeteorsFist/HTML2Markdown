@@ -26,7 +26,7 @@ config:
 
   # 图片相关
   image: 
-    download: true
+    download: false
     src_list: 
       - src
       - data-original-src
@@ -42,7 +42,7 @@ config:
     refer: true
   # 使用js动态加载的网站
   js_load:
-    - juejin.cn
+    - jueji2n.cn2
   # 站点适配器，对不同的网站的内容和标题进行适配
   adapters: 
     # CSND站点

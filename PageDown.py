@@ -152,12 +152,14 @@ class PageDown():
 
     def save(self, title, content):
         # MarkDown文件名
-        os = platform.system()
-        if os == "Windows":
+        os_name = platform.system()
+        if os_name == "Windows":
             # 文件名不能包含以下字符：< > : " / \ | ? *。
             invalid_chars = '<>:"/\\|?*'
             for char in invalid_chars:
                 title = title.replace(char, "-")
+        title = title.replace('\n', '')
+        title = title.replace('\t\n', '')
         md_file = self.md_dir + "/" + title + '.md'
         if exists(md_file) and not self.page_rewrite:
             print('文章已经存在: {}'.format(md_file))
@@ -165,7 +167,7 @@ class PageDown():
         print('保存Markdown文件到: {}'.format(md_file))
         try:
             # 保存文件
-            with open(md_file, 'w') as f:
+            with open(md_file, 'w', encoding='utf-8') as f:
                 # 写入文件
                 f.write(content)
         except Exception as e:
