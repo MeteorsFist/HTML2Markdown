@@ -9,15 +9,11 @@
 @说明 :  解析HTML
 
 '''
-import datetime
 import os
 import platform
-import time
 from os.path import exists
 from urllib.parse import urljoin, urlparse
 
-import httpx
-import requests
 from bs4 import BeautifulSoup, Tag, NavigableString, Comment
 
 from Utils import download_img, yaml_config_load
@@ -213,8 +209,6 @@ class Parser(object):
         return code
 
 
-
-
 class HandlerFactory(object):
     @staticmethod
     def getHandler(url):
@@ -224,7 +218,7 @@ class HandlerFactory(object):
             return Handler()
 
 class Handler(object):
-    def handle_pre(self,soup):
+    def handle_pre(self, soup):
         # 语言
         language = self.extract_language(soup)
         if language is None:
@@ -280,20 +274,3 @@ class CSDNHandler(Handler):
         else:
             soup.contents.insert(0, NavigableString('\n```' + language + '\n'))
         soup.contents.append(NavigableString('```\n')) # 少一个换行
-
-if __name__ == '__main__':
-    # html = '<body><!-- cde --><h1>This is 1 &lt;= 2<!-- abc --> <b>title</b></h1><p><a href="www.hello.com">hello</a></p><b>test</b>'
-    html = """ 
-     <div>
-        <nav>
-            <ol>nanananna</ol>
-            
-        </nav>
-        <div>
-            内容
-        </div>
-     </div>
-     
-     """
-    parser = Parser(html, '')
-    print(''.join(parser.outputs))
